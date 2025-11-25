@@ -1,0 +1,262 @@
+/**
+ * Core Philosophy: This ruleset enforces a multi-vendor e-commerce model. 
+ * The primary security principles are user ownership of personal data and vendor 
+ * ownership of their business data (profiles and products). Public data, like 
+ * products and vendor profiles, is readable by anyone, but write access is 
+ * strictly controlled.
+ *
+ * Data Structure:
+ * - /users/{userId}: Private user data, accessible only by the owner.
+ * - /users/{userId}/cart/{cartItemId}: Private cart data, accessible only by the owner.
+ * - /vendors/{vendorId}: Public vendor profiles. The associated user (via the 
+ *   `userId` field) has write permissions.
+ * - /vendors/{vendorId}/products/{productId}: Public products, nested under the 
+ *   vendor for clear ownership.
+ * - /orders/{orderId}: Private orders, accessible only by the customer who placed 
+ *   the order (via the `customerId` field).
+ * - Public Collections: /tags and /productRecommendations are public-read and 
+ *   not writable by clients.
+ *
+ * Key Security Decisions:
+ * - Deny By Default: All paths are closed unless explicitly allowed.
+ * - User Isolation: Users cannot read or list other users' private data.
+ * - Vendor Control: Users linked to a vendor profile can manage that profile 
+ *   and its associated products.
+ * - Order Privacy: Orders and their contents are private to the customer. 
+ *   Listing all orders is disabled to prevent data leakage.
+ * - Ambiguous Ownership: Collections like /addresses, where ownership is not
+ *   defined in the schema, are fully locked down until a clear ownership
+ *   field (e.g., `userId`) is added.
+ *
+ * Denormalization for Authorization:
+ * - Vendor profiles contain a `userId` to link them to a user account for 
+ *   authorization.
+ * - Products are nested under vendors, but a `vendorId` field is still 
+ *   enforced on creation for relational integrity.
+ * - Orders contain a `customerId` to grant access without needing to query
+ *   another collection. This is essential for secure and performant rules.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+    
+    /**
+     * Returns true if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Returns true if the requesting user's UID matches the provided userId.
+     * Used for path-based ownership rules (e.g., /users/{userId}).
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * Returns true if the document being updated/deleted exists and the
+     * requesting user is the owner.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * Checks if the requesting user's UID matches an ownership field
+     * (e.g., 'userId', 'customerId') within a document's data.
+     */
+    function isDocumentOwner(docData, ownerField) {
+      return isSignedIn() && docData[ownerField] == request.auth.uid;
+    }
+    
+    /**
+     * Checks if a user owns the parent vendor document by performing a read.
+     * This is used to authorize changes to subcollections like products.
+     */
+    function isVendorProductOwner(vendorId) {
+      return isSignedIn() && get(/databases/$(database)/documents/vendors/$(vendorId)).data.userId == request.auth.uid;
+    }
+
+    /**
+     * Checks if a user is the customer for a given order by performing a read.
+     * Used to authorize access to an order and its subcollections (orderItems).
+     */
+    function isOrderCustomer(orderId) {
+      return isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid;
+    }
+
+
+    /**
+     * @description Manages private user account information.
+     * @path /users/{userId}
+     * @allow (create) A new user signing up: `auth.uid` matches `{userId}`.
+     * @allow (get) A signed-in user reading their own profile.
+     * @deny (list) An attacker trying to list all user documents.
+     * @deny (update) A user trying to modify another user's profile.
+     * @principle Restricts access to a user's own data tree.
+     */
+    match /users/{userId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description Stores items in a user's shopping cart.
+       * @path /users/{userId}/cart/{cartItemId}
+       * @allow (all) The user can fully manage their own cart.
+       * @deny (all) Other users cannot access another user's cart.
+       * @principle Inherits ownership from the parent user document.
+       */
+      match /cart/{cartItemId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    /**
+     * @description Stores public vendor profiles, manageable by the linked user.
+     * @path /vendors/{vendorId}
+     * @allow (get) Any user, signed in or not, viewing a vendor profile.
+     * @allow (create) A signed-in user creating a new vendor profile for themselves.
+     * @allow (update) The user linked via `userId` updating their vendor profile.
+     * @deny (update) A user trying to take over another user's vendor profile.
+     * @deny (delete) A malicious user trying to delete a competitor's profile.
+     * @principle Enforces public read access with owner-only writes.
+     */
+    match /vendors/{vendorId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if resource != null && isDocumentOwner(resource.data, 'userId') && request.resource.data.userId == resource.data.userId;
+      allow delete: if resource != null && isDocumentOwner(resource.data, 'userId');
+    }
+
+    /**
+     * @description Stores public products, manageable by the vendor who owns them.
+     * @path /vendors/{vendorId}/products/{productId}
+     * @allow (get) Any user, signed in or not, viewing products.
+     * @allow (create) The vendor owner adding a new product to their own collection.
+     * @deny (create) A vendor trying to add a product under a competitor's vendor ID.
+     * @deny (update) A user trying to change the price of a product they don't own.
+     * @principle Inherits ownership from the parent document for write control.
+     */
+    match /vendors/{vendorId}/products/{productId} {
+      allow get, list: if true;
+      allow create: if isVendorProductOwner(vendorId) && request.resource.data.vendorId == vendorId;
+      allow update: if resource != null && isVendorProductOwner(vendorId) && request.resource.data.vendorId == resource.data.vendorId;
+      allow delete: if resource != null && isVendorProductOwner(vendorId);
+    }
+
+    /**
+     * @description Stores private order information, accessible only to the customer.
+     * @path /orders/{orderId}
+     * @allow (get) A customer viewing the details of their own order.
+     * @allow (create) A customer placing a new order for themselves.
+     * @deny (get) A user trying to access another customer's order details.
+     * @deny (list) Any user attempting to list all orders on the platform.
+     * @principle Enforces document ownership for reads and writes based on an internal 'customerId' field.
+     */
+    match /orders/{orderId} {
+      allow get: if isDocumentOwner(resource.data, 'customerId');
+      allow list: if false;
+      allow create: if isSignedIn() && request.resource.data.customerId == request.auth.uid;
+      allow update: if resource != null && isDocumentOwner(resource.data, 'customerId') && request.resource.data.customerId == resource.data.customerId;
+      allow delete: if resource != null && isDocumentOwner(resource.data, 'customerId');
+    }
+
+    /**
+     * @description Stores items for a specific order, inheriting access from the parent order.
+     * @path /orders/{orderId}/orderItems/{orderItemId}
+     * @allow (get) A customer viewing an item within their own order.
+     * @allow (list) A customer listing all items for one of their orders.
+     * @deny (create) A user trying to add an item to someone else's order.
+     * @deny (delete) A user trying to remove an item from another user's order.
+     * @principle Inherits ownership from the parent document for all access control.
+     */
+    match /orders/{orderId}/orderItems/{orderItemId} {
+      allow get, list: if isOrderCustomer(orderId);
+      allow create: if isOrderCustomer(orderId) && request.resource.data.orderId == orderId;
+      allow update: if resource != null && isOrderCustomer(orderId) && request.resource.data.orderId == resource.data.orderId;
+      allow delete: if resource != null && isOrderCustomer(orderId);
+    }
+
+    /**
+     * @description Stores address information. Access is currently disabled.
+     * @path /addresses/{addressId}
+     * @allow (none) Access is fully denied.
+     * @deny (all) All operations are denied for security.
+     * @principle CRITICAL: Cannot implement secure rules. The 'Address' entity is missing a 'userId' or 'ownerId' field to link it to a user. Access is denied until the schema is updated.
+     */
+    match /addresses/{addressId} {
+      allow get: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow list: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow create: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Stores shipping address information. Access is currently disabled.
+     * @path /shippingAddresses/{shippingAddressId}
+     * @allow (none) Access is fully denied.
+     * @deny (all) All operations are denied for security.
+     * @principle CRITICAL: Cannot implement secure rules. The 'ShippingAddress' entity is missing a 'userId' or 'ownerId' field. Access is denied until the schema is updated.
+     */
+    match /shippingAddresses/{shippingAddressId} {
+      allow get: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow list: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow create: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Stores billing address information. Access is currently disabled.
+     * @path /billingAddresses/{billingAddressId}
+     * @allow (none) Access is fully denied.
+     * @deny (all) All operations are denied for security.
+     * @principle CRITICAL: Cannot implement secure rules. The 'BillingAddress' entity is missing a 'userId' or 'ownerId' field. Access is denied until the schema is updated.
+     */
+    match /billingAddresses/{billingAddressId} {
+      allow get: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow list: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow create: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Stores public product tags. This is read-only for clients.
+     * @path /tags/{tagId}
+     * @allow (get) Any user, signed in or not, can read tags.
+     * @deny (create) Clients cannot create new tags.
+     * @deny (update) Clients cannot update existing tags.
+     * @principle Secures a collection as public, read-only data.
+     */
+    match /tags/{tagId} {
+      allow get, list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Stores public, AI-generated product recommendations. This is read-only for clients.
+     * @path /productRecommendations/{productRecommendationId}
+     * @allow (get) Any user, signed in or not, can read recommendations.
+     * @deny (create) Clients cannot create new recommendations.
+     * @deny (delete) Clients cannot delete recommendations.
+     * @principle Secures a collection as public, read-only data.
+     */
+    match /productRecommendations/{productRecommendationId} {
+      allow get, list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+  }
+}

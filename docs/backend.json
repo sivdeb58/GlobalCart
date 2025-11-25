@@ -1,0 +1,612 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user account on the platform.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user entity."
+        },
+        "username": {
+          "type": "string",
+          "description": "The username of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the user."
+        },
+        "registrationDate": {
+          "type": "string",
+          "description": "The date and time the user registered.",
+          "format": "date-time"
+        },
+        "billingAddressId": {
+          "type": "string",
+          "description": "Reference to BillingAddress. (Relationship: User 1:1 BillingAddress)"
+        },
+        "shippingAddressId": {
+          "type": "string",
+          "description": "Reference to ShippingAddress. (Relationship: User 1:1 ShippingAddress)"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email",
+        "firstName",
+        "lastName",
+        "registrationDate"
+      ]
+    },
+    "Product": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Product",
+      "type": "object",
+      "description": "Represents a product listed on the platform.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the product entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the product."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the product."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the product image.",
+          "format": "uri"
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the product."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "The quantity of the product in stock."
+        },
+        "category": {
+          "type": "string",
+          "description": "The category the product belongs to."
+        },
+        "vendorId": {
+          "type": "string",
+          "description": "Reference to Vendor. (Relationship: Vendor 1:N Product)"
+        },
+        "tagIds": {
+          "type": "array",
+          "description": "References to Tags. (Relationship: Tag N:N Product)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "imageUrl",
+        "price",
+        "quantity",
+        "category",
+        "vendorId"
+      ]
+    },
+    "Vendor": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Vendor",
+      "type": "object",
+      "description": "Represents a vendor selling products on the platform.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the vendor entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the vendor."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the vendor."
+        },
+        "contactEmail": {
+          "type": "string",
+          "description": "The contact email of the vendor.",
+          "format": "email"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:1 Vendor)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "contactEmail",
+        "userId"
+      ]
+    },
+    "Order": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Order",
+      "type": "object",
+      "description": "Represents an order placed by a customer.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the order entity."
+        },
+        "orderDate": {
+          "type": "string",
+          "description": "The date the order was placed.",
+          "format": "date-time"
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "The total amount of the order."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the order (e.g., pending, processing, shipped, delivered)."
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Order)"
+        },
+        "shippingAddressId": {
+          "type": "string",
+          "description": "Reference to ShippingAddress. (Relationship: Order 1:1 ShippingAddress)"
+        },
+        "billingAddressId": {
+          "type": "string",
+          "description": "Reference to BillingAddress. (Relationship: Order 1:1 BillingAddress)"
+        }
+      },
+      "required": [
+        "id",
+        "orderDate",
+        "totalAmount",
+        "status",
+        "customerId",
+        "shippingAddressId",
+        "billingAddressId"
+      ]
+    },
+    "OrderItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OrderItem",
+      "type": "object",
+      "description": "Represents an item within an order.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the order item entity."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "The quantity of the item ordered."
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the item at the time of the order."
+        },
+        "orderId": {
+          "type": "string",
+          "description": "Reference to Order. (Relationship: Order 1:N OrderItem)"
+        },
+        "productId": {
+          "type": "string",
+          "description": "Reference to Product. (Relationship: Product 1:N OrderItem)"
+        }
+      },
+      "required": [
+        "id",
+        "quantity",
+        "price",
+        "orderId",
+        "productId"
+      ]
+    },
+    "Address": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Address",
+      "type": "object",
+      "description": "Represents a generic address for shipping or billing.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the address entity."
+        },
+        "street": {
+          "type": "string",
+          "description": "The street address."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city."
+        },
+        "state": {
+          "type": "string",
+          "description": "The state."
+        },
+        "zipCode": {
+          "type": "string",
+          "description": "The zip code."
+        },
+        "country": {
+          "type": "string",
+          "description": "The country."
+        }
+      },
+      "required": [
+        "id",
+        "street",
+        "city",
+        "state",
+        "zipCode",
+        "country"
+      ]
+    },
+    "ShippingAddress": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ShippingAddress",
+      "type": "object",
+      "description": "Represents the shipping address for an order or user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the shipping address entity."
+        },
+        "street": {
+          "type": "string",
+          "description": "The street address."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city."
+        },
+        "state": {
+          "type": "string",
+          "description": "The state."
+        },
+        "zipCode": {
+          "type": "string",
+          "description": "The zip code."
+        },
+        "country": {
+          "type": "string",
+          "description": "The country."
+        }
+      },
+      "required": [
+        "id",
+        "street",
+        "city",
+        "state",
+        "zipCode",
+        "country"
+      ]
+    },
+    "BillingAddress": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BillingAddress",
+      "type": "object",
+      "description": "Represents the billing address for an order or user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the billing address entity."
+        },
+        "street": {
+          "type": "string",
+          "description": "The street address."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city."
+        },
+        "state": {
+          "type": "string",
+          "description": "The state."
+        },
+        "zipCode": {
+          "type": "string",
+          "description": "The zip code."
+        },
+        "country": {
+          "type": "string",
+          "description": "The country."
+        }
+      },
+      "required": [
+        "id",
+        "street",
+        "city",
+        "state",
+        "zipCode",
+        "country"
+      ]
+    },
+    "Tag": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tag",
+      "type": "object",
+      "description": "Represents a tag that can be associated with products.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the tag entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the tag."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "ProductRecommendation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ProductRecommendation",
+      "type": "object",
+      "description": "Represents a product recommendation generated by the AI.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the product recommendation entity."
+        },
+        "productId": {
+          "type": "string",
+          "description": "Reference to Product that is being recommended. (Relationship: Product 1:N ProductRecommendation)"
+        },
+        "recommendedProductId": {
+          "type": "string",
+          "description": "Reference to Product that is being recommended. (Relationship: Product 1:N ProductRecommendation)"
+        },
+        "recommendationReason": {
+          "type": "string",
+          "description": "The reason for the product recommendation (e.g., 'Frequently bought together', 'Similar items')."
+        }
+      },
+      "required": [
+        "id",
+        "productId",
+        "recommendedProductId",
+        "recommendationReason"
+      ]
+    },
+    "CartItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CartItem",
+      "type": "object",
+      "description": "Represents an item in a user's shopping cart.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the cart item, often the product ID."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "The quantity of the product in the cart."
+        },
+        "addedAt": {
+          "type": "string",
+          "description": "The date and time the item was added to the cart.",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "quantity", "addedAt"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user account information. User ID is used for path-based ownership.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/vendors/{vendorId}",
+        "definition": {
+          "entityName": "Vendor",
+          "schema": {
+            "$ref": "#/backend/entities/Vendor"
+          },
+          "description": "Stores vendor information. Vendor ID is the document ID.",
+          "params": [
+            {
+              "name": "vendorId",
+              "description": "The unique identifier for the vendor."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/vendors/{vendorId}/products/{productId}",
+        "definition": {
+          "entityName": "Product",
+          "schema": {
+            "$ref": "#/backend/entities/Product"
+          },
+          "description": "Stores products listed by a specific vendor.  Inherits ownership from the vendor document. vendorId MUST match the parent path. Denormalized vendorId for authorization independence.",
+          "params": [
+            {
+              "name": "vendorId",
+              "description": "The unique identifier for the vendor."
+            },
+            {
+              "name": "productId",
+              "description": "The unique identifier for the product."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/orders/{orderId}",
+        "definition": {
+          "entityName": "Order",
+          "schema": {
+            "$ref": "#/backend/entities/Order"
+          },
+          "description": "Stores order information. Customer ID is stored within the document to allow fetching orders for a specific customer.",
+          "params": [
+            {
+              "name": "orderId",
+              "description": "The unique identifier for the order."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/orders/{orderId}/orderItems/{orderItemId}",
+        "definition": {
+          "entityName": "OrderItem",
+          "schema": {
+            "$ref": "#/backend/entities/OrderItem"
+          },
+          "description": "Stores order items within a specific order.",
+          "params": [
+            {
+              "name": "orderId",
+              "description": "The unique identifier for the order."
+            },
+            {
+              "name": "orderItemId",
+              "description": "The unique identifier for the order item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/addresses/{addressId}",
+        "definition": {
+          "entityName": "Address",
+          "schema": {
+            "$ref": "#/backend/entities/Address"
+          },
+          "description": "Stores generic address information.",
+          "params": [
+            {
+              "name": "addressId",
+              "description": "The unique identifier for the address."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/shippingAddresses/{shippingAddressId}",
+        "definition": {
+          "entityName": "ShippingAddress",
+          "schema": {
+            "$ref": "#/backend/entities/ShippingAddress"
+          },
+          "description": "Stores shipping address information.",
+          "params": [
+            {
+              "name": "shippingAddressId",
+              "description": "The unique identifier for the shipping address."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/billingAddresses/{billingAddressId}",
+        "definition": {
+          "entityName": "BillingAddress",
+          "schema": {
+            "$ref": "#/backend/entities/BillingAddress"
+          },
+          "description": "Stores billing address information.",
+          "params": [
+            {
+              "name": "billingAddressId",
+              "description": "The unique identifier for the billing address."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tags/{tagId}",
+        "definition": {
+          "entityName": "Tag",
+          "schema": {
+            "$ref": "#/backend/entities/Tag"
+          },
+          "description": "Stores product tags.",
+          "params": [
+            {
+              "name": "tagId",
+              "description": "The unique identifier for the tag."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/productRecommendations/{productRecommendationId}",
+        "definition": {
+          "entityName": "ProductRecommendation",
+          "schema": {
+            "$ref": "#/backend/entities/ProductRecommendation"
+          },
+          "description": "Stores AI-generated product recommendations.",
+          "params": [
+            {
+              "name": "productRecommendationId",
+              "description": "The unique identifier for the product recommendation."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/cart/{cartItemId}",
+        "definition": {
+          "entityName": "CartItem",
+          "schema": { "$ref": "#/backend/entities/CartItem" },
+          "description": "Stores items in a user's shopping cart. Inherits ownership from the parent user document.",
+          "params": [
+            { "name": "userId", "description": "The unique identifier for the user." },
+            { "name": "cartItemId", "description": "The unique identifier for the cart item, typically the product ID." }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support a multi-vendor e-commerce platform (GlobalCart), focusing on product listings, order management, user accounts, and AI-powered product recommendations. Key considerations include authorization independence, scalability, and clear security rules. Authorization independence is achieved through denormalization. Vendor information (specifically, `userId`) is denormalized into the `/products` collection to ensure product access can be verified without needing to query the `vendors` collection, critical for QAPs. Similarly, user ownership is enforced by nested collections. Products are stored under each vendor's ownership at `/vendors/{vendorId}/products/{productId}`. This structure supports QAPs because listing products for a specific vendor simply involves a collection group query with the `vendorId` as a parameter, and the security rules can easily filter based on the `vendorId` in the path.\n\nMembership for collaborative access (if implemented in future features like shared vendor dashboards) can be handled using membership maps denormalized onto documents requiring shared access.\n\nSegregation is used to separate user data (private) from vendor product listings. Each vendor has their own product collection under their document, enforcing clear boundaries.  Admin roles (if implemented) should be stored in a dedicated collection (e.g., `/roles_admin/{uid}`) for easy verification without complex rule logic.\n\nThe use of consistent naming conventions (e.g., `userId`, `productId`, `vendorId`) ensures clarity and maintainability across the database.  Explicit state modeling (e.g., a `status` field for orders) is preferred over deriving state from timestamps or multiple boolean fields."
+  }
+}
